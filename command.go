@@ -801,10 +801,15 @@ type GeoCmd struct {
 
 // Query type for geo radius
 type GeoRadiusQuery struct {
+	// Bucket key identifier.
 	Key string
+	// Member name to query for instead of latitude/longitude.
+	Name string
+	// latitude, longitude, and radius to query.
 	Longitude, Latitude, Radius float64
 	// Unit default to km when nil
 	Unit string
+	// Whether additional location info are required
 	WithCoordinates, WithDistance, WithGeoHash bool
 	// Count default to 0 and ignored limit.
 	Count int

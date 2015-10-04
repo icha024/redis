@@ -1706,37 +1706,48 @@ func (c *commandable) GeoRadius(query *GeoRadiusQuery) *GeoCmd {
 		options++
 	}
 
-	args := make([]interface{}, 6 + options)
+	// offset depending on if geo radius query by member or lat/long
+	offset := 0
+	if query.Name != "" {
+		offset = -1
+	}
+
+	args := make([]interface{}, 6 + offset + options)
 	args[0] = "GEORADIUS"
 	args[1] = query.Key
-	args[2] = query.Longitude
-	args[3] = query.Latitude
-	args[4] = query.Radius
-	if query.Unit != "" {
-		args[5] = query.Unit
+	if query.Name != "" {
+		args[0] = "GEORADIUSBYMEMBER"
+		args[2] = query.Name
 	} else {
-		args[5] = "km"
+		args[2] = query.Longitude
+		args[3] = query.Latitude
+	}
+	args[4+offset] = query.Radius
+	if query.Unit != "" {
+		args[5+offset] = query.Unit
+	} else {
+		args[5+offset] = "km"
 	}
 	if query.WithCoordinates {
-		args[6+optionsCtr] = "WITHCOORD"
+		args[6+offset+optionsCtr] = "WITHCOORD"
 		optionsCtr++
 	}
 	if query.WithDistance {
-		args[6+optionsCtr] = "WITHDIST"
+		args[6+offset+optionsCtr] = "WITHDIST"
 		optionsCtr++
 	}
 	if query.WithGeoHash {
-		args[6+optionsCtr] = "WITHHASH"
+		args[6+offset+optionsCtr] = "WITHHASH"
 		optionsCtr++
 	}
 	if query.Count > 0 {
-		args[6+optionsCtr] = "COUNT"
+		args[6+offset+optionsCtr] = "COUNT"
 		optionsCtr++
-		args[6+optionsCtr] = query.Count
+		args[6+offset+optionsCtr] = query.Count
 		optionsCtr++
 	}
 	if query.Sort != "" {
-		args[6+optionsCtr] = query.Sort
+		args[6+offset+optionsCtr] = query.Sort
 	}
 
 	cmd := NewGeoCmd(args...)
