@@ -791,6 +791,7 @@ type GeoLocation struct {
 	Name string
 	Longitude, Latitude, Distance float64
 	GeoHash int64
+	GeoHashStr string
 }
 
 type GeoCmd struct {
@@ -839,51 +840,79 @@ func (cmd *GeoCmd) String() string {
 }
 
 func (cmd *GeoCmd) parseReply(cn *conn) error {
-	vi, err := parseReply(cn, parseSlice)
-	if err != nil {
-		cmd.err = err
+
+	if cmd._args[0].(string) == "GEODIST" {
+		v, err := parseReply(cn, nil)
+		if err != nil {
+			cmd.err = err
+			return err
+		}
+		b := v.([]byte)
+		var dist float64
+		dist, cmd.err = strconv.ParseFloat(bytesToString(b), 64)
+		cmd.locations = append(cmd.locations, GeoLocation{Distance: dist})
+
 		return cmd.err
-	}
+	} else {
 
-	v := vi.([]interface{})
+		// Other Geo search commands
+		vi, err := parseReply(cn, parseSlice)
+		if err != nil {
+			cmd.err = err
+			return cmd.err
+		}
 
-	if len(v) == 0 {
+		v := vi.([]interface{})
+
+		if len(v) == 0 {
+			return nil
+		}
+
+		if cmd._args[0].(string) == "GEOHASH" {
+			if _, ok := v[0].(string); ok { // Location names only (single level string array)
+				for _, keyi := range v {
+					cmd.locations = append(cmd.locations, GeoLocation{GeoHashStr: keyi.(string)})
+				}
+			}
+		} else {
+			// GeoRadius, GeoDistByMember, or GeoPos type search.
+			if _, ok := v[0].(string); ok { // Location names only (single level string array)
+				for _, keyi := range v {
+					cmd.locations = append(cmd.locations, GeoLocation{Name: keyi.(string)})
+				}
+			} else { // Full location details (nested arrays)
+				for _, keyi := range v {
+					tmpLocation := GeoLocation{}
+					keyiface := keyi.([]interface{})
+					for _, subKeyi := range keyiface {
+						if strVal, ok := subKeyi.(string); ok {
+							if len(tmpLocation.Name) == 0 {
+								tmpLocation.Name = strVal
+							} else {
+								tmpLocation.Distance, err = strconv.ParseFloat(strVal, 64)
+								if err != nil {
+									return err
+								}
+							}
+						} else if intVal, ok := subKeyi.(int64); ok {
+							tmpLocation.GeoHash = intVal
+						} else if ifcVal, ok := subKeyi.([]interface{}); ok {
+							tmpLocation.Longitude, err = strconv.ParseFloat(ifcVal[0].(string), 64)
+							if err != nil {
+								return err
+							}
+							tmpLocation.Latitude, err = strconv.ParseFloat(ifcVal[1].(string), 64)
+							if err != nil {
+								return err
+							}
+						}
+					}
+					cmd.locations = append(cmd.locations, tmpLocation)
+				}
+			}
+		}
+
 		return nil
 	}
 
-	if _, ok := v[0].(string); ok { // Location names only (single level string array)
-		for _, keyi := range v {
-			cmd.locations = append(cmd.locations, GeoLocation{Name: keyi.(string)})
-		}
-	} else { // Full location details (nested arrays)
-		for _, keyi := range v {
-			tmpLocation := GeoLocation{}
-			keyiface := keyi.([]interface{})
-			for _, subKeyi := range keyiface {
-				if strVal, ok := subKeyi.(string); ok {
-					if len(tmpLocation.Name) == 0 {
-						tmpLocation.Name = strVal
-					} else {
-						tmpLocation.Distance, err = strconv.ParseFloat(strVal, 64)
-						if err != nil {
-							return err
-						}
-					}
-				} else if intVal, ok := subKeyi.(int64); ok {
-					tmpLocation.GeoHash = intVal
-				} else if ifcVal, ok := subKeyi.([]interface{}); ok {
-					tmpLocation.Longitude, err = strconv.ParseFloat(ifcVal[0].(string), 64)
-					if err != nil {
-						return err
-					}
-					tmpLocation.Latitude, err = strconv.ParseFloat(ifcVal[1].(string), 64)
-					if err != nil {
-						return err
-					}
-				}
-			}
-			cmd.locations = append(cmd.locations, tmpLocation)
-		}
-	}
-	return nil
 }

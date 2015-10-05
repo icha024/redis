@@ -1754,3 +1754,43 @@ func (c *commandable) GeoRadius(query *GeoRadiusQuery) *GeoCmd {
 	c.Process(cmd)
 	return cmd
 }
+
+func (c *commandable) GeoDist(key string, geo1, geo2 *GeoLocation, unit string) *GeoCmd {
+	if unit == "" {
+		unit = "km"
+	}
+	args := make([]interface{}, 5)
+	args[0] = "GEODIST"
+	args[1] = key
+	args[2] = geo1.Name
+	args[3] = geo2.Name
+	args[4] = unit
+
+	cmd := NewGeoCmd(args...)
+	c.Process(cmd)
+	return cmd
+}
+
+func (c *commandable) GeoPos(key string, geo1, geo2 *GeoLocation) *GeoCmd {
+	args := make([]interface{}, 4)
+	args[0] = "GEOPOS"
+	args[1] = key
+	args[2] = geo1.Name
+	args[3] = geo2.Name
+
+	cmd := NewGeoCmd(args...)
+	c.Process(cmd)
+	return cmd
+}
+
+func (c *commandable) GeoHash(key string, geo1, geo2 *GeoLocation) *GeoCmd {
+	args := make([]interface{}, 4)
+	args[0] = "GEOHASH"
+	args[1] = key
+	args[2] = geo1.Name
+	args[3] = geo2.Name
+
+	cmd := NewGeoCmd(args...)
+	c.Process(cmd)
+	return cmd
+}
